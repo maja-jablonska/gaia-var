@@ -7,7 +7,7 @@ import pandas as pd
 from typing import List, Optional
 from ssl import SSLEOFError
 
-from gaia_toolkit.preprocess import gaia_time_to_bjd
+from gaia_var.preprocess import gaia_time_to_bjd
 
 GAIA_TABLE_DR3 = pd.DataFrame()
 AVAILABLE_COLUMNS = []

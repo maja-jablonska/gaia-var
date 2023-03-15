@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from astropy.units import Quantity
 from astropy.coordinates import Angle
 import astropy.units as u
-from gaia_toolkit.archive import (AVAILABLE_COLUMNS, FIVEPARAM_ALL_FIELDS, FIVEPARAM_RA, FIVEPARAM_DEC,
+from gaia_var.archive import (AVAILABLE_COLUMNS, FIVEPARAM_ALL_FIELDS, FIVEPARAM_RA, FIVEPARAM_DEC,
                           fetch_gaia_data, fetch_gaia_photometry, read_fiveparam_fit_from_dataframe)
 
 class GaiaEvent():

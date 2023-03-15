@@ -1,6 +1,6 @@
 import pandas as pd
 from astropy.time import Time
-from gaia_toolkit.preprocess import gaia_time_to_bjd
+from gaia_var.preprocess import gaia_time_to_bjd
 import os
 
 gaps = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/astrometry_EDR3_gaps.csv'))
