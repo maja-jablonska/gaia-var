@@ -7,6 +7,8 @@ gaps = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dat
 gaps['start_jyear'] = gaia_time_to_bjd(gaps['start']).jyear
 gaps['end_jyear'] = gaia_time_to_bjd(gaps['end']).jyear
 
+decontamination = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/decontamination.csv'))
+
 def gap_for_time(time: Time) -> pd.DataFrame:
     """Return the gap(s_ for given time
 
@@ -28,3 +30,8 @@ def is_in_gap(time: Time) -> bool:
     """
     return len(gap_for_time(time).index)>0
 
+def get_decontamination_times() -> pd.DataFrame:
+    return decontamination[decontamination.event!="Refocus"]
+
+def get_refocus_times() -> pd.DataFrame:
+    return decontamination[decontamination.event=="Refocus"]
