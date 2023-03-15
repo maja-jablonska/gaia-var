@@ -1,4 +1,4 @@
-# gaia-toolkit
+# Gaia Toolkit
 Gaia utilities toolkit for variable events.
 
 ## Tools
@@ -51,3 +51,9 @@ as well as individual values, but always make note of the units used:
 ```python
 event.fiveparam_fit_values
 ```
+
+## TO-DOs
+
+### BP/RP spectra
+
+### Variability tables
