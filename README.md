@@ -1,4 +1,4 @@
-# Gaia Toolkit
+# Gaia Variables Toolkit
 Gaia utilities toolkit for variable events.
 
 ## Tools
