@@ -1,3 +1,4 @@
+from collections import defaultdict
 from astroquery.gaia import Gaia
 from typing import Dict, List
 import pandas as pd
@@ -95,8 +96,8 @@ def mag_error(flux_over_error: float) -> float:
     return 1/(flux_over_error*2.5/np.log(10))
 
 
-def fetch_gaia_photometry(source_id: int) -> pd.DataFrame:
-    retrieval_type = 'EPOCH_PHOTOMETRY'
+def _fetch_gaia_datalink_product(source_id: int, product_type: str) -> pd.DataFrame:
+    retrieval_type = product_type
     data_structure = 'INDIVIDUAL'
     data_release   = 'Gaia DR3'
     datalink = Gaia.load_data(
@@ -118,8 +119,6 @@ def fetch_gaia_photometry(source_id: int) -> pd.DataFrame:
     
     try:
         table: pd.DataFrame = datalink[dl_keys[0]][0].to_table().to_pandas()
-        table['time_year'] = gaia_time_to_bjd(table['time']).jyear
-        table['mag_err'] = mag_error(table['flux_over_error'])
     except Exception as e:
         print(f'Error: {e}')
         return pd.DataFrame
@@ -127,8 +126,26 @@ def fetch_gaia_photometry(source_id: int) -> pd.DataFrame:
     return table
 
 
-def fetch_gaia_data(source_id: np.ndarray, additional_columns: Optional[List[str]] = None) -> pd.DataFrame:
-    
+def fetch_gaia_photometry(source_id: int) -> pd.DataFrame:
+    table =  _fetch_gaia_datalink_product(source_id, 'EPOCH_PHOTOMETRY')
+    try:
+        table['time_year'] = gaia_time_to_bjd(table['time']).jyear
+        table['mag_err'] = mag_error(table['flux_over_error'])
+    except Exception as e:
+        print(f'Error: {e}')
+        return table
+    return table
+
+
+def fetch_gaia_rvs(source_id: int) -> pd.DataFrame:
+    return _fetch_gaia_datalink_product(source_id, 'RVS')
+
+
+def fetch_gaia_xp(source_id: int) -> pd.DataFrame:
+    return _fetch_gaia_datalink_product(source_id, 'XP_SAMPLED')
+
+
+def __source_id_condition(source_id: np.ndarray) -> str:
     source_id_condition: str = ''
     if isinstance(source_id, int):
         print("Fetching for single source...")
@@ -138,6 +155,13 @@ def fetch_gaia_data(source_id: np.ndarray, additional_columns: Optional[List[str
         source_id_condition = f'IN ({",".join(["{:d}".format(int(si)) for si in source_id])})'
     else:
         raise ValueError('Source ID must be a single integer, a list, or ndarray of integers!')
+    
+    return source_id_condition
+
+
+def fetch_gaia_data(source_id: np.ndarray, additional_columns: Optional[List[str]] = None) -> pd.DataFrame:
+    
+    source_id_condition = __source_id_condition(source_id)
 
     additional_columns = additional_columns if additional_columns else []
 
@@ -163,3 +187,68 @@ def fetch_gaia_data(source_id: np.ndarray, additional_columns: Optional[List[str
         print('Exception while querying sources' + getattr(e, 'message', repr(e)))
 
         return pd.DataFrame(data=[], columns=AVAILABLE_COLUMNS)
+
+
+VARIABILITY_CLASSES = [
+    'rrlyrae',
+    'cepheid',
+    'planetary_transit',
+    'short_timescale',
+    'long_period_variable',
+    'eclipsing_binary',
+    'rotation_modulation',
+    'ms_oscillator',
+    'agn',
+    'microlensing',
+    'compact_companion'
+]
+
+
+def get_variability_class(source_id: np.ndarray) -> Optional[str]:
+
+    source_id_condition = __source_id_condition(source_id)
+
+    job = Gaia.launch_job_async(f"""select source_id, phot_variable_flag
+    from gaiadr3.gaia_source where source_id {source_id_condition})
+    """)
+
+    try:
+        results = job.get_results().to_pandas()
+        print(f'Fetched variability flags for {len(results.index)} sources.')
+    except Exception as e:
+        print('Exception while querying phot_variability_flag for sources' + getattr(e, 'message', repr(e)))
+        return pd.DataFrame(data=[], columns=AVAILABLE_COLUMNS)
+
+    variable_sources = results[results['phot_variable_flag']=='VARIABLE']
+    variable_source_ids = variable_sources['source_id'].values
+
+    variable_source_id_condition = __source_id_condition(variable_source_ids)
+
+    try:
+        print(f"""select source_id, {','.join([f'in_vari_{vc}' for vc in VARIABILITY_CLASSES])}
+        from gaiadr3.vari_summary where source_id {variable_source_id_condition})
+        """)
+        job = Gaia.launch_job_async(f"""select source_id, {','.join([f'in_vari_{vc}' for vc in VARIABILITY_CLASSES])}
+        from gaiadr3.vari_summary where source_id {variable_source_id_condition})
+        """)
+
+        results = job.get_results().to_pandas()
+
+        print(f'Fetching for variability classes for {variable_source_ids}...')
+
+    except Exception as e:
+        print('Exception while querying for variability classes for sources' + getattr(e, 'message', repr(e)))
+        return pd.DataFrame(data=[], columns=AVAILABLE_COLUMNS)
+        
+    all_results = defaultdict(lambda: defaultdict(list))
+
+    for _, row in results.iterrows():
+        for vc in VARIABILITY_CLASSES:
+            if row[f'in_vari_{vc}']:
+                job = Gaia.launch_job_async(f"""select * 
+                from gaiadr3.vari_{vc} where source_id={row['source_id']})
+                """)
+                source_result = job.get_results().to_pandas()
+                all_results[row['source_id']][vc].append(source_result)
+
+    return all_results

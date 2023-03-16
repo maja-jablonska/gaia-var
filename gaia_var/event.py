@@ -5,7 +5,7 @@ from astropy.units import Quantity
 from astropy.coordinates import Angle
 import astropy.units as u
 from gaia_var.archive import (AVAILABLE_COLUMNS, FIVEPARAM_ALL_FIELDS, FIVEPARAM_RA, FIVEPARAM_DEC,
-                          fetch_gaia_data, fetch_gaia_photometry, read_fiveparam_fit_from_dataframe)
+                          fetch_gaia_data, fetch_gaia_photometry, fetch_gaia_rvs, fetch_gaia_xp, read_fiveparam_fit_from_dataframe)
 
 class GaiaEvent():
     def __init__(self, source_id: int):
@@ -13,6 +13,8 @@ class GaiaEvent():
         self.__5param_fit: Dict[str, Optional[float]] = {f: None for f in FIVEPARAM_ALL_FIELDS}
         self.__lightcurve: Optional[pd.DataFrame] = None
         self.__gaia_archive_data: Optional[pd.DataFrame] = None
+        self.__rvs: Optional[pd.DataFrame] = None
+        self.__xp: Optional[pd.DataFrame] = None
 
     @property
     def source_id(self) -> int:
@@ -25,6 +27,14 @@ class GaiaEvent():
     @property
     def photometry(self) -> pd.DataFrame:
         return self.__lightcurve
+
+    @property
+    def rvs(self) -> pd.DataFrame:
+        return self.__rvs
+
+    @property
+    def xp(self) -> pd.DataFrame:
+        return self.__xp
 
     @property
     def ra(self) -> Optional[float]:
@@ -64,6 +74,14 @@ class GaiaEvent():
     def photometry(self, new_photometry: pd.DataFrame):
         self.__lightcurve = new_photometry
 
+    @rvs.setter
+    def rvs(self, new_rvs: pd.DataFrame):
+        self.__rvs = new_rvs
+
+    @xp.setter
+    def xp(self, new_xp: pd.DataFrame):
+        self.__xp = new_xp
+
     @reference_epoch.setter
     def reference_epoch(self, new_reference_epoch: float):
         self.__reference_epoch = new_reference_epoch
@@ -79,6 +97,11 @@ class GaiaEvent():
     def fetch_dr3_photometry(self):
         self.photometry = fetch_gaia_photometry(self.source_id)
 
+    def fetch_dr3_rvs(self):
+        self.rvs = fetch_gaia_rvs(self.source_id)
+
+    def fetch_dr3_xp(self):
+        self.xp = fetch_gaia_xp(self.source_id)
 
     def plot_photometry(self, ax: Optional[plt.Axes] = None, bands: Optional[List[str]] = None):
         BAND_COLORS: Dict = {'G': 'slategray', 'BP': 'royalblue', 'RP': 'firebrick'}
@@ -104,3 +127,26 @@ class GaiaEvent():
         ax.set_ylabel('luminosity [mag]')
         ax.invert_yaxis()
         ax.legend()
+        return ax
+
+    def plot_rvs(self, ax: Optional[plt.Axes] = None, **kwargs):
+        if not ax:
+            _, ax = plt.subplots(1, 1)
+        
+        ax.errorbar(self.rvs.wavelength, self.rvs.flux, yerr=self.rvs.flux_error,
+                    elinewidth=0.5, **kwargs)
+        ax.set_xlabel('wavelength [nm]', fontsize=14)
+        ax.set_ylabel('flux', fontsize=14)
+
+        return ax
+
+    def plot_xp(self, ax: Optional[plt.Axes] = None, **kwargs):
+        if not ax:
+            _, ax = plt.subplots(1, 1)
+        
+        ax.errorbar(self.xp.wavelength, self.xp.flux, yerr=self.xp.flux_error,
+                    elinewidth=0.5, **kwargs)
+        ax.set_xlabel('wavelength [nm]', fontsize=14)
+        ax.set_ylabel('flux [$\\rm{W}\cdot \\rm{m}^{-2}\cdot \\rm{nm}^{-1}$]', fontsize=14)
+
+        return ax
